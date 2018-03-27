@@ -13,12 +13,16 @@
 #include <arpa/inet.h>
 #include <error.h>
 #include <errno.h>
+#include <sys/time.h>
 char *kl;
+int fdmax;
 
 typedef struct s_p
 {
   int file;
-  int sk;
+  int sk1;
+  int sk2;
+  int sk3;
 
 }t_p;
 
@@ -44,13 +48,17 @@ int core_daemon(t_p *op)
     int sock;
 	int r;
 	char buf[2048] = {};
+
 	r = 0;
     write(op->file, "start select\n", 13);
 
     /* Surveiller stdin (fd 0) en attente d'entrées */
     FD_ZERO(&rfds);
-    FD_SET(op->sk, &rfds);
-
+    FD_SET(op->sk1, &rfds);
+    if (op->sk2)
+      FD_SET(op->sk2, &rfds);
+    if (op->sk3)
+      FD_SET(op->sk3, &rfds);
     /* Pendant 5 secondes maxi */
     tv.tv_sec = 15;
     tv.tv_usec = 0;
@@ -65,8 +73,20 @@ return (-42);
 }
     else if (retval)
 	{
+	  if (FD_ISSET(op->sk1, &rfds))
+	    write(op->file, "1\n",2);
+	  else
+	    write(op->file, "0\n",2);
+	  if (FD_ISSET(op->sk2, &rfds))
+	    write(op->file, "1\n",2);
+	  else
+	    write(op->file, "0\n",2);
+	  if (FD_ISSET(op->sk3, &rfds))
+	    write(op->file, "1\n",2);
+	  else
+	    write(op->file, "0\n",2);
 	write(op->file, "Des données sont disponibles maintenant\n", 41);
-	(r = read(op->sk, buf,2048));
+	(r = read(op->sk1, buf,2048));
 	if (r < 0)
 	exit_error("[EROR] read fail", op->file);
 	else
@@ -77,7 +97,7 @@ return (-42);
 {
       write(op->file, "Aucune données durant les 15 secondes\n", 39);
 	close (op->file);
-	close(op->sk);
+	close(op->sk1);
 	return (-42);
 }
 
@@ -98,7 +118,14 @@ t_p *create_server(int file)
   int accept_socket;
   int port;
   t_p op;
+  fd_set rfds;
+  int tmp_sock;
+  int retval;
 
+  retval = 0;
+  op.sk1 = 0;
+  op.sk2 = 0;
+  op.sk3 = 0;
   port = atoi(kl);
   prot = getprotobyname("tcp");
   if (prot == NULL)
@@ -112,6 +139,7 @@ t_p *create_server(int file)
   if ((socketid = socket(AF_INET, SOCK_STREAM,\
 			prot->p_proto)) < 0)
     exit_error("socket error server side.\nExiting...\n", file);
+  fdmax = socketid;
   if ((bind(socketid, (struct sockaddr *)&serv_sock,sizeof(serv_sock))) < 0)
 {
 
@@ -121,18 +149,79 @@ close(socketid);
   if (listen(socketid, 5) < 0)
     exit_error("Error while listing. Exiting...\n", file);
   write(file, "serv creat\n", 11);
+  fdmax = socketid;
+  //        FD_ZERO(&rfds);
+  //	FD_SET(socketid, &rfds);
 
+  int nb = 0;
   while (42)
     {
-	  write(file, "boucle\n", 7);
-      if ((accept_socket = accept(socketid,\
-				       (struct sockaddr *)&cli_sock, \
-				       (unsigned int *)&cli_size)) < 0)
-	exit_error("Error while accepting the socket. Exiting...", file);
-      op.file = file;
-      op.sk = accept_socket;
-            core_daemon(&op);
+              FD_ZERO(&rfds);
+        FD_SET(socketid, &rfds);
 
+		FD_SET(op.sk1, &rfds);
+	FD_SET(op.sk2, &rfds);
+	FD_SET(op.sk3, &rfds);
+	  write(file, "boucle\n", 7);
+	  retval = select(fdmax+1, &rfds, NULL, NULL, NULL);
+	  /* Considérer tv comme indéfini maintenant ! */
+	  //	  write(file, "retval = ", 9);
+	  //	  write(file, "retval = ", 9);
+	  if (retval == -1)
+	    exit_error("[ERR sock serv]", file);
+	  for (int i = 0; i < fdmax ; ++i)
+	    {
+	      if (retval && FD_ISSET(i, &rfds))
+		{
+		  if (i == socketid)
+		    {
+		      // ##newconnection...
+		      if ((tmp_sock = accept(socketid,			\
+					     (struct sockaddr *)&cli_sock, \
+					     (unsigned int *)&cli_size)) < 0)
+			exit_error("Error while accepting the socket. Exiting...", file);
+		      if (tmp_sock > fdmax)
+			{
+			fdmax = tmp_sock;
+			nb++;
+			}
+		      if (nb == 1)
+		      op.sk1 = tmp_sock;
+		      else if (nb == 2)
+			op.sk2 = tmp_sock;
+		      else if (nb == 3)
+			op.sk3 = tmp_sock;
+		      FD_SET(tmp_sock, &rfds);
+		    }
+		  else
+		    {
+		      //#knowed socket read..
+		      
+		      char buff[1024] = {};
+		      read(i, buff, 1024);
+		      write(file, buff,strlen(buff));
+		      FD_CLR(i, &rfds);
+		      FD_SET(i, &rfds);
+		    }
+		    /*		  write(file, "bo2222\n", 7);
+		  if ((tmp_sock = accept(socketid,			\
+					 (struct sockaddr *)&cli_sock,	\
+					 (unsigned int *)&cli_size)) < 0)
+		    exit_error("Error while accepting the socket. Exiting...", file);
+		  if (op.sk1 == 0 || tmp_sock == op.sk1)
+		    {
+		      op.sk1 = tmp_sock;
+		    }
+		  else if (!op.sk2)
+		    op.sk2 = tmp_sock;
+		  else if (!op.sk3)
+		    op.sk3 = tmp_sock;
+		  op.file = file;
+		  write(file, "bo3333\n", 7);
+		  //	      core_daemon(&op);*/
+		  }
+	    }
+	  
     }
   return (&op);
 }
@@ -161,21 +250,6 @@ kl = av[1];
 	signal(SIGCHLD, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
 
-
-	//2nd fork : PID != SID our process can't take control of a TTY again
-	/*	pid2 = fork();
-	if (pid2 < 0)
-	  {
-	    printf("cannot create child, parent exit.\n");
-	    exit(EXIT_FAILURE);
-	}
-	if (pid2 > 0)
-          {
-            printf("child %d created, parent exit.\n", (int)pid2);
-            exit(EXIT_SUCCESS);
-	  }
-
-	*/
 	//create mask, open full access
 	mode_t mask;
 	mask = umask(0);
