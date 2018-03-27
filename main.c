@@ -11,51 +11,84 @@
 #include <strings.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <error.h>
+#include <errno.h>
+char *kl;
 
 typedef struct s_p
 {
   int file;
   int sk;
-  
+
 }t_p;
+
 void exit_error(char *err, int file)
 {
+int i = errno;
   write(file, err, strlen(err));
+  write(file, strerror(i), strlen(strerror(i)));
   close(file);
   exit(EXIT_FAILURE);
 }
 
-void core_daemon(t_p *op)
+void	print_file(char *cmd, int file)
+{
+	write (file, cmd, strlen(cmd));
+}
+
+int core_daemon(t_p *op)
 {
     fd_set rfds;
     struct timeval tv;
     int retval;
     int sock;
+	int r;
+	char buf[2048] = {};
+	r = 0;
+    write(op->file, "start select\n", 13);
 
-    write(op->file, "OK\n", 3);
     /* Surveiller stdin (fd 0) en attente d'entrées */
     FD_ZERO(&rfds);
     FD_SET(op->sk, &rfds);
 
     /* Pendant 5 secondes maxi */
-    tv.tv_sec = 5;
+    tv.tv_sec = 15;
     tv.tv_usec = 0;
 
     retval = select(op->file, &rfds, NULL, NULL, &tv);
     /* Considérer tv comme indéfini maintenant ! */
 
     if (retval == -1)
+{
       write(op->file, "ERR select", 10);
+return (-42);
+}
     else if (retval)
-      write(op->file, "Des données sont disponibles maintenant\n", 41);
+	{
+	write(op->file, "Des données sont disponibles maintenant\n", 41);
+	(r = read(op->sk, buf,2048));
+	if (r < 0)
+	exit_error("[EROR] read fail", op->file);
+	else
+		print_file(buf, op->file);
+	}
         /* FD_ISSET(0, &rfds) est vrai */
     else
-      write(op->file, "Aucune données durant les 5 secondes\n", 38);
-
-    exit(EXIT_SUCCESS);
+{
+      write(op->file, "Aucune données durant les 15 secondes\n", 39);
+	close (op->file);
+	close(op->sk);
+	return (-42);
 }
 
-int create_server(int file)
+    write(op->file, "end select\n", 11);
+//	close(op->file);
+//	close(op->sk);
+    //exit(EXIT_SUCCESS);
+return 0;
+}
+
+t_p *create_server(int file)
 {
   struct sockaddr_in	serv_sock;
   struct sockaddr_in	cli_sock;
@@ -66,7 +99,7 @@ int create_server(int file)
   int port;
   t_p op;
 
-  port = 4242;
+  port = atoi(kl);
   prot = getprotobyname("tcp");
   if (prot == NULL)
     write(file, "prot fail\n", 10);
@@ -79,28 +112,34 @@ int create_server(int file)
   if ((socketid = socket(AF_INET, SOCK_STREAM,\
 			prot->p_proto)) < 0)
     exit_error("socket error server side.\nExiting...\n", file);
-  if ((bind(socketid, (struct sockaddr *)&serv_sock,	\
-	    sizeof(serv_sock))) < 0)
+  if ((bind(socketid, (struct sockaddr *)&serv_sock,sizeof(serv_sock))) < 0)
+{
+
+close(socketid);
     exit_error("Error while binding the socket.\nExiting...\n", file);
+}
   if (listen(socketid, 5) < 0)
     exit_error("Error while listing. Exiting...\n", file);
   write(file, "serv creat\n", 11);
+
   while (42)
     {
+	  write(file, "boucle\n", 7);
       if ((accept_socket = accept(socketid,\
 				       (struct sockaddr *)&cli_sock, \
 				       (unsigned int *)&cli_size)) < 0)
 	exit_error("Error while accepting the socket. Exiting...", file);
       op.file = file;
       op.sk = accept_socket;
-      
-      core_daemon(&op);
+            core_daemon(&op);
+
     }
-  return (0);
+  return (&op);
 }
 
 int main(int ac, char **av)
 {
+kl = av[1];
   pid_t pid, pid2;
 
         /* Fork off the parent process */
@@ -184,10 +223,12 @@ int main(int ac, char **av)
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
 	write(file, "BC\n", 3);
+
 	while (1)
 	{
-	  write(file, "OK\n", 3);
+	  write(file, "OP\n", 3);
 	  create_server(file);
+      //core_daemon(&op)
 	  sleep(10);
 	}
 	return (0);
