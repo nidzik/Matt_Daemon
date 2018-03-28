@@ -117,8 +117,8 @@ t_p *create_server(int file)
 				if (i == socketid)
 				{
 					// ##newconnection...
-					if (op.sk1 == -1 || op.sk2 == -1 || op.sk3 == -1)
-					{
+				  //					if (op.sk1 == -1 || op.sk2 == -1 || op.sk3 == -1)
+				  //{
 						if ((tmp_sock = accept(socketid,			\
 											   (struct sockaddr *)&cli_sock, \
 											   (unsigned int *)&cli_size)) < 0)
@@ -135,11 +135,12 @@ t_p *create_server(int file)
 							op.sk2 = tmp_sock;
 						else if (nb == 3)
 							op.sk3 = tmp_sock;
-						FD_SET(tmp_sock, &rfds);
-					}
-					else{
+						if (op.sk1 == -1 || op.sk2 == -1 || op.sk3 == -1) 
+						  FD_SET(tmp_sock, &rfds);
+						
+					else
 						write(file, "[ERROR]  no socket avalibles \n", 30);
-					}
+					
 
 				}
 				else
