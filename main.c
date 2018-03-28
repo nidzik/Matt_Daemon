@@ -50,7 +50,7 @@ int core_daemon(t_p *op)
 	char buf[2048] = {};
 
 	r = 0;
-    write(op->file, "start select\n", 13);
+//    write(op->file, "start select\n", 13);
 
     /* Surveiller stdin (fd 0) en attente d'entrées */
     FD_ZERO(&rfds);
@@ -119,13 +119,14 @@ t_p *create_server(int file)
   int port;
   t_p op;
   fd_set rfds;
+  fd_set rfdss;
   int tmp_sock;
   int retval;
 
   retval = 0;
-  op.sk1 = 0;
-  op.sk2 = 0;
-  op.sk3 = 0;
+  op.sk1 = -1;
+  op.sk2 = -1;
+  op.sk3 = -1;
   port = atoi(kl);
   prot = getprotobyname("tcp");
   if (prot == NULL)
@@ -154,37 +155,47 @@ close(socketid);
   //	FD_SET(socketid, &rfds);
 
   int nb = 0;
+int i = 0;
+
+        FD_ZERO(&rfdss);
+        FD_SET(socketid, &rfdss);
+
   while (42)
     {
-              FD_ZERO(&rfds);
-        FD_SET(socketid, &rfds);
-
-		FD_SET(op.sk1, &rfds);
+rfds = rfdss;
+	if (op.sk1 != -1)
+{
+	FD_SET(op.sk1, &rfds);
+}
+	if (op.sk2 != -1)
 	FD_SET(op.sk2, &rfds);
+	if (op.sk3 != -1)
 	FD_SET(op.sk3, &rfds);
-	  write(file, "boucle\n", 7);
 	  retval = select(fdmax+1, &rfds, NULL, NULL, NULL);
 	  /* Considérer tv comme indéfini maintenant ! */
 	  //	  write(file, "retval = ", 9);
 	  //	  write(file, "retval = ", 9);
 	  if (retval == -1)
-	    exit_error("[ERR sock serv]", file);
-	  for (int i = 0; i < fdmax ; ++i)
+	    exit_error("[ERROR] select fail. ", file);
+	  for (int i = 0; i <= fdmax ; ++i)
 	    {
-	      if (retval && FD_ISSET(i, &rfds))
+	      if (FD_ISSET(i, &rfds))
 		{
 		  if (i == socketid)
 		    {
 		      // ##newconnection...
+if (op.sk1 == -1 || op.sk2 == -1 || op.sk3 == -1)
+{
 		      if ((tmp_sock = accept(socketid,			\
 					     (struct sockaddr *)&cli_sock, \
 					     (unsigned int *)&cli_size)) < 0)
 			exit_error("Error while accepting the socket. Exiting...", file);
+			write(file, "[LOG]  new socket created\n", 26);
 		      if (tmp_sock > fdmax)
 			{
 			fdmax = tmp_sock;
-			nb++;
 			}
+			nb++;
 		      if (nb == 1)
 		      op.sk1 = tmp_sock;
 		      else if (nb == 2)
@@ -192,33 +203,31 @@ close(socketid);
 		      else if (nb == 3)
 			op.sk3 = tmp_sock;
 		      FD_SET(tmp_sock, &rfds);
+}
+else{
+			write(file, "[ERROR]  no socket avalibles \n", 30);
+			}
+
 		    }
 		  else
 		    {
 		      //#knowed socket read..
-		      
+//		     write(file, "socket knowed\n", 14);
 		      char buff[1024] = {};
-		      read(i, buff, 1024);
-		      write(file, buff,strlen(buff));
+		      if (read(i, buff, 1024) == 0)
+{
+			write(file, "[ERROR] sk disconected\n", 23);
+			close(i);
 		      FD_CLR(i, &rfds);
-		      FD_SET(i, &rfds);
+if (i == op.sk1) op.sk1 = -1;
+if (i == op.sk2) op.sk2 = -1;
+if (i == op.sk3) op.sk3 = -1;
+}
+			write(file, "[CMD]   ", 8);
+		      write(file, buff,strlen(buff));
+
+//		      FD_SET(i, &rfds);
 		    }
-		    /*		  write(file, "bo2222\n", 7);
-		  if ((tmp_sock = accept(socketid,			\
-					 (struct sockaddr *)&cli_sock,	\
-					 (unsigned int *)&cli_size)) < 0)
-		    exit_error("Error while accepting the socket. Exiting...", file);
-		  if (op.sk1 == 0 || tmp_sock == op.sk1)
-		    {
-		      op.sk1 = tmp_sock;
-		    }
-		  else if (!op.sk2)
-		    op.sk2 = tmp_sock;
-		  else if (!op.sk3)
-		    op.sk3 = tmp_sock;
-		  op.file = file;
-		  write(file, "bo3333\n", 7);
-		  //	      core_daemon(&op);*/
 		  }
 	    }
 	  
