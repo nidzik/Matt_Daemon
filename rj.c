@@ -12,6 +12,10 @@
 #include <assert.h>
 #include "rj.h"
 
+// debug includes 
+#include <stdio.h>
+#include <stdlib.h>
+
 #define numrows_to_blocksize(N) (4 * (N))
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
@@ -20,7 +24,22 @@ static int antilog_table[256];
 static int s_box[256];
 static int s_box_inverse[256];
 static int rcon[30];
+static void hex_dump(const unsigned char *data, size_t size, FILE *stream);
 
+static void print_block(rijn_block_t *b)
+{
+	printf("print block : \n");
+		for (int j = 0; j < 4 ; j++)
+		{
+			for (int i = 0; i < 8; i++)
+			{
+				
+				printf("%3d ", (int)b[j][i]);
+					}
+			printf("\n");
+		}
+		
+}
 static int
 multiply(int a, int b)
 {
@@ -36,9 +55,19 @@ key_add(rijn_block_t *out, rijn_block_t *in, rijn_block_t *roundkey, int numrows
     const unsigned char *flat_in = (unsigned char *) in;
     const unsigned char *flat_rk = (unsigned char *) roundkey;
     int numbytes = numrows_to_blocksize(numrows);
-
+//	print_block(flat_in);
+	
+/*	printf("*in ^ *roundkey;\nroundkey = ");
+	hex_dump((char *)roundkey, 32, stdout);
+	printf("\nin = ");
+	hex_dump((char *)in, 16, stdout);
+	printf(" = (%s)\n",(char *)flat_in);*/
     while (numbytes-- > 0)
 		*flat_out++ = *flat_in++ ^ *flat_rk++;
+/*	printf("out = ");
+	hex_dump(out, 16, stdout);
+	printf("\n\n");*/
+//	print_block(flat_out);
 }
 
 static void
@@ -202,37 +231,54 @@ rijn_sched_key(rijn_keysched_t *sched, rijn_key_t *key, const rijn_param_t *para
 
     memcpy(&temp_key, key, keybytes);
 
+	printf("blockrow = %d    keyrows = %d    nround = %d \n", blockrows, keyrows, nrounds);
     for (row = 0; row < keyrows; row++) {
 		sched->rijn_roundkey[row / blockrows][row % blockrows][0] = temp_key[row][0];
 		sched->rijn_roundkey[row / blockrows][row % blockrows][1] = temp_key[row][1];
 		sched->rijn_roundkey[row / blockrows][row % blockrows][2] = temp_key[row][2];
 		sched->rijn_roundkey[row / blockrows][row % blockrows][3] = temp_key[row][3];
+		printf("sched->rijn_roundkey[%d][%d][0..3] =  %2d  %2d  %2d  %2d \n", row / blockrows, row % blockrows, temp_key[row][0], temp_key[row][1], temp_key[row][2], temp_key[row][3]);
+//		printf("sched->rijn_roundkey[%d][%d][1] = %d \n", row / blockrows, row % blockrows,temp_key[row][1]);
+//		printf("sched->rijn_roundkey[%d][%d][2] = %d \n", row / blockrows, row % blockrows, temp_key[row][2]);
+//		printf("sched->rijn_roundkey[%d][%d][3] = %d \n", row / blockrows, row % blockrows, temp_key[row][3]);
     }
-
+	printf("\n\n\n");
     while (row < (nrounds + 1) * blockrows) {
+		printf("(bf shift)tmp_key[0][0..3] =  %2d  %2d  %2d  %2d \n", temp_key[0][0], temp_key[0][1], temp_key[0][2], temp_key[0][3]);
 		temp_key[0][0] ^= s_box[temp_key[keyrows-1][1]];
 		temp_key[0][1] ^= s_box[temp_key[keyrows-1][2]];
 		temp_key[0][2] ^= s_box[temp_key[keyrows-1][3]];
 		temp_key[0][3] ^= s_box[temp_key[keyrows-1][0]];
-
+		printf("(af shift)tmp_key[0][0..3] =  %2d  %2d  %2d  %2d \n", temp_key[0][0], temp_key[0][1], temp_key[0][2], temp_key[0][3]);
 		temp_key[0][0] ^= rcon[rcon_index++];
-
+		printf("tmp_key[0][0] = %d \n", temp_key[0][0]);
 		if (keyrows == 8) {
+			printf("\n> temp_key[i][0..3] ^= temp_key[i-1][0..3] :: (tmp_key[1..3])\n");
 			for (i = 1; i < keyrows / 2; i++) {
 				temp_key[i][0] ^= temp_key[i-1][0];
 				temp_key[i][1] ^= temp_key[i-1][1];
 				temp_key[i][2] ^= temp_key[i-1][2];
 				temp_key[i][3] ^= temp_key[i-1][3];
+				printf("tmp_key[%d][0..3] =  %2d  %2d  %2d  %2d \n",i, temp_key[i][0], temp_key[i][1], temp_key[i][2], temp_key[i][3]);
 			}
+
+
 			temp_key[0][i] ^= s_box[temp_key[i-1][0]];
 			temp_key[1][i] ^= s_box[temp_key[i-1][1]];
 			temp_key[2][i] ^= s_box[temp_key[i-1][2]];
 			temp_key[3][i] ^= s_box[temp_key[i-1][3]];
+				printf("\n>> temp_key[0..3][i] ^= s_box[temp_key[i-1][0]] :: (tmp_key[4])\n");
+				printf("tmp_key[0..3][%d] =  %2d  %2d  %2d  %2d \n",i, temp_key[0][i], temp_key[1][i], temp_key[2][i], temp_key[3][i]);
+
+
+				printf("\n>>> temp_key[i][0..3] ^= temp_key[i-1][0..3] :: (tmp_key[5..7])\n");
 			for (i++; i < keyrows; i++) {
 				temp_key[i][0] ^= temp_key[i-1][0];
 				temp_key[i][1] ^= temp_key[i-1][1];
 				temp_key[i][2] ^= temp_key[i-1][2];
 				temp_key[i][3] ^= temp_key[i-1][3];
+				printf("tmp_key[%d][0..3] =  %2d  %2d  %2d  %2d \n",i, temp_key[i][0], temp_key[i][1], temp_key[i][2], temp_key[i][3]);
+
 			}
 		} else {
 			assert (keyrows != 8);
@@ -241,14 +287,16 @@ rijn_sched_key(rijn_keysched_t *sched, rijn_key_t *key, const rijn_param_t *para
 				temp_key[i][1] ^= temp_key[i-1][1];
 				temp_key[i][2] ^= temp_key[i-1][2];
 				temp_key[i][3] ^= temp_key[i-1][3];
+				printf("??????????????????????keyrow != 8--tmp_key[%d][0..3] =  %2d  %2d  %2d  %2d \n",i, temp_key[i][0], temp_key[i][1], temp_key[i][2], temp_key[i][3]);
 			}
 		}
-
+		printf("\n");
 		for (i = 0; i < keyrows && row < (nrounds + 1) * blockrows; i++, row++) {
 			sched->rijn_roundkey[row / blockrows][row % blockrows][0] = temp_key[i][0];
 			sched->rijn_roundkey[row / blockrows][row % blockrows][1] = temp_key[i][1];
 			sched->rijn_roundkey[row / blockrows][row % blockrows][2] = temp_key[i][2];
 			sched->rijn_roundkey[row / blockrows][row % blockrows][3] = temp_key[i][3];
+			printf("sched->rijn_roundkey[%d][%d][0..3] =  %3d  %3d  %3d  %3d \n", row / blockrows, row % blockrows, temp_key[i][0], temp_key[i][1], temp_key[i][2], temp_key[i][3]);
 		}
     }
 }
@@ -262,10 +310,25 @@ rijn_encrypt(rijn_keysched_t *sched, unsigned char *out, const unsigned char *in
     rijn_block_t *out_block = (rijn_block_t *) out;
     rijn_block_t *in_block = (rijn_block_t *) in;
 
+
+    printf("*in ^ *roundkey;\nroundkey = ");
+    hex_dump((char *)&sched->rijn_roundkey[0], 16, stdout);
+    printf("\nin = ");
+    hex_dump((char *)in_block, 16, stdout);
+    printf(" = (%s)\n",(char *)in_block);
+
+
     key_add(out_block, in_block, &sched->rijn_roundkey[0], blockrows);
+
+
+    printf("out = ");
+    hex_dump(out_block, 16, stdout);
+    printf("\n\n");
 
     for (round = 1; round < nrounds; round++) {
 		substitute(out_block, s_box, blockrows);
+		if (round == 1)
+			    hex_dump(out_block, 16, stdout);
 		shift_column(out_block, blockrows);
 		mix_row(out_block, blockrows);
 		key_add(out_block, out_block, &sched->rijn_roundkey[round], blockrows);
@@ -347,12 +410,10 @@ rijn_cbc_decrypt(rijn_keysched_t *sched, unsigned char *iv, unsigned char *out,
 
 //#ifdef RIJN_TEST
 
-#include <stdio.h>
-#include <stdlib.h>
 static void hex_dump(const unsigned char *data, size_t size, FILE *stream)
 {
     while (size--)
-		fprintf(stream, "%02X", (unsigned int) *data++);
+		fprintf(stream, "%02X-", (unsigned int) *data++);
 }
 
 int main(void)
@@ -360,32 +421,28 @@ int main(void)
     static rijn_param_t param = RIJN_PARAM_INITIALIZER(rijn_128, rijn_256);
 //#if 0
     rijn_key_t key = { 0x00, 0x01, 0x02, 0x03, 0x05, 0x06, 0x07, 0x08, 0x0A,
-					   0x0B, 0x0C, 0x0D, 0x0F, 0x10, 0x11, 0x12 };
+					   0x0B, 0x0C, 0x0D, 0x0F, 0x10, 0x11, 0x12 , 0x13};
 //#else
 //    rijn_key_t key = { { 0x80 } };
 //#endif
-	char *str = malloc (300 * sizeof(char));
-	bzero(str, 300);
-	str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbccccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddd";
+	char *str = "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH\0";
+//	bzero(str, 300);
     rijn_keysched_t sched = { 0 };
     unsigned char plaintext[32] = { 0 };
     unsigned char ciphertext[32] = { 0 };
 	unsigned char iv[32] = {};
 	int i = 0;
 	int j = 0;
-	while (1)
+	while (j < 30)
 	{
-	while (j < 31)
-	{
-		if (!(*str))
-			return 0;
-		plaintext[j++] = *str++;
+		plaintext[j] = str[j];
+		j++;
 	}
 	j = 0;
-	iv[0] = 0x1;
+/*	iv[0] = 0x1;
 	iv[1] = 0x21;
 	iv[2] = 'a';
-	iv[3] = 0;
+	iv[3] = 0;*/
 //	plaintext[0] = 'a';
     rijn_sched_key(&sched, &key, &param);
 	//printf("plaintext = %s, iv = %s\n",plaintext, iv);
@@ -400,7 +457,6 @@ int main(void)
 	bzero(plaintext, 32);
     putchar('\n');
 //	str += 32;
-	}
     return 0;
 }
 
