@@ -538,8 +538,8 @@ char *rijn_build_encrypt(rijn_keysched_t *sched,\
 			tmp = malloc((16 * (h - 1)) * sizeof(char));
 			bzero(tmp, 16 * (h -1));
             strncpy(tmp,concat, 16 * (h - 1));//strdup(concat);
-			concat = malloc((16 * h) * sizeof(char));
-			bzero(concat, 16*h);
+			concat = malloc((16 * h +1) * sizeof(char));
+			bzero(concat, 16*h +1);
 			strncpy(concat, tmp, 16*(h-1));
 			strncat(concat, ciphertext, 16);
 		}
@@ -639,6 +639,7 @@ int main(int ac, char **av)
 	hex_dump(concat, 128, stdout);fflush (stdout);
 //		sleep(10);
 		h = 0;
+		char *concati = concat;
 	while (*concat)
     {
 		h++;
@@ -647,15 +648,16 @@ int main(int ac, char **av)
         write(1,"oooo",4);
         for (j = 0; j < 16 ; j++)
         {
-			if (!(*concat))
+			            ciphertext[j] = *concat++;
+						if (!(*concat))
 			{
 //				rijn_decrypt(&sched, plaintext, ciphertext);
 //				break;
 				len_last = j;
 				j = 16;
 			}
-			else
-            ciphertext[j] = *concat++;
+
+
         }
 		j = 0;
 		hex_dump(ciphertext, 64, stdout);fflush (stdout);
@@ -678,13 +680,14 @@ int main(int ac, char **av)
 			bzero(tmp, 16 * (h-1));
             strncpy(tmp, rebuild, 16 * (h-1));
 			free(rebuild);
-			rebuild = malloc((16 * h) * sizeof(char));
-			bzero(rebuild, 16 * h);
+			rebuild = malloc((16 * h +1) * sizeof(char));
+			bzero(rebuild, 16 * h +1);
 			strncpy(rebuild, tmp, 16 * (h-1));
 			free(tmp);
 			tmp = NULL;
-			strncat(rebuild, plaintext, 16);
-			printf
+			len_last = strlen(plaintext);
+			strncat(rebuild, plaintext, len_last);
+//			printf
 			printf("2nd ^^^^^^^^ REBUILD DECRYPTED CHAIN = %s  ----  %s \n\n\n\n",rebuild, plaintext);
 			bzero(ciphertext, 32);
 			bzero(plaintext, 32);
@@ -700,6 +703,7 @@ int main(int ac, char **av)
 //	len_last = len_last +  (16*(h-1));
     hex_dump(rebuild, 128, stdout);
 	printf("\n\n\n %d   %s\n\n", 16*h, rebuild );
+	hex_dump(concati, 128, stdout);
 /*
 	char *end = NULL;
 	end = malloc(sizeof(char) *(h *16 +1));
