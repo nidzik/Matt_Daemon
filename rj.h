@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define RIJN_MAX_ROUNDS 14
 
@@ -45,7 +45,7 @@ extern "C" {
 #define RIJN_PARAM_DEFAULT_INITIALIZER { rijn_128, rijn_256 }
 #define RIJN_PARAM_INITIALIZER(BLOCKSZ, KEYSZ) { (BLOCKSZ), (KEYSZ) }
 
-	void rijn_param_init(rijn_param_t *, rijn_size_t blocksz, rijn_size_t keysz);
+//	void rijn_param_init(rijn_param_t *, rijn_size_t blocksz, rijn_size_t keysz);
 
 /*
  * Rijndael keys are 128, 192 or 256 bits wide.  There are up to
