@@ -12,10 +12,13 @@
 #define RJ_H
 
 #include <stddef.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define DEBUG 0
 
 #define RIJN_MAX_ROUNDS 14
 
@@ -72,6 +75,9 @@ extern "C" {
 	void rijn_cfb_decrypt(rijn_keysched_t *, unsigned char *iv, unsigned char *out,
 						  const unsigned char *in, size_t nbytes);
 
+/* utils fct*/
+	char    *ft_strncpyz(char *dst, const char *src, size_t n);
+	char        *ft_strncatz(char *dest, const char *src, size_t n);
 #ifdef __cplusplus
 }
 #endif
