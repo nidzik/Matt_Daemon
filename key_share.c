@@ -20,11 +20,11 @@ int main (int ac, char **av)
 	i = 0;
     // Both the persons will be agreed upon the
 	// public keys G and P
-    P = 15487019; // A prime number P is taken
+    P = 858599503;//15487019; // A prime number P is taken
     printf("The value of P : %lld\n", P);
-//	while (i < P)
+	while (i < P)
 	{
-		G = 9706108; // A primitve root for P, G is taken
+		G = i % P;//9706108; // A primitve root for P, G is taken
     printf("The value of G : %lld\n\n", G);
 
     // Alice will choose the private key a
@@ -54,3 +54,8 @@ int main (int ac, char **av)
     printf("Secret Key for the Bob is : %lld\n", kb);
 	return 0;
 }
+
+
+https://tools.ietf.org/html/rfc2409#section-6.2
+
+https://crypto.stackexchange.com/questions/820/how-does-one-calculate-a-primitive-root-for-diffie-hellman
