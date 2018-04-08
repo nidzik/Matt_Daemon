@@ -1,7 +1,7 @@
+#include <sha.h>
 #include <openssl/conf.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
-#include <openssl/sha.h>
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
@@ -101,9 +101,10 @@ long long int power(long long int a, long long int b,
     else
         return (((long long int)pow(a, b)) % P);
 }
- 
 
-int main (void)
+#include <stdlib.h> 
+
+int main (int ac, char **av)
 {
 long long int P, G, x, a, y, b, ka, kb; 
      
@@ -112,7 +113,7 @@ long long int P, G, x, a, y, b, ka, kb;
     P = 23; // A prime number P is taken
     printf("The value of P : %lld\n", P); 
  
-    G = 9; // A primitve root for P, G is taken
+    G = atoi(av[1]); // A primitve root for P, G is taken
     printf("The value of G : %lld\n\n", G); 
  
     // Alice will choose the private key a 

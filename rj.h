@@ -1,13 +1,3 @@
-/*
- * Highly portable ANSI C implementation of Rijndael cipher.
- * Written by Kaz Kylheku
- * Copyright 2010
- *
- * License:
- * 1. Please retain attribution and copyright notice in source code.
- * 2. No restrictions on compiled code.
- */
-
 #ifndef RJ_H
 #define RJ_H
 
